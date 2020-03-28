@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from "react";
-// @ts-ignore
-import {CartesianGrid, Line, LineChart, XAxis, YAxis, BarChart, Bar, Tooltip} from 'recharts';
 import coronaService from "../services/corona";
+import { VictoryBar, VictoryChart, VictoryLine, VictoryPie, VictoryStack, VictoryGroup, VictoryTooltip, VictoryTheme } from "victory";
 
 const Corona = () => {
   const [confirmed, setConfirmed] = useState<Corona[]>([]);
@@ -29,7 +28,7 @@ const Corona = () => {
     infectionSource: string;
   }
 
-  interface ConfirmedByDistrict {
+  interface MapByDistrict {
     district: string;
     size: number;
     coronas: Corona[];
@@ -43,12 +42,12 @@ const Corona = () => {
     setLatestCase(coronas.confirmed.pop());
   };
 
-  const mapToConfirmedByDistrict = (district: string, coronas: Corona[]) => {
+  const mapByDistrict = (district: string, coronas: Corona[]) => {
     return {
       district: district,
       size: coronas.length,
       coronas: coronas,
-    } as ConfirmedByDistrict;
+    } as MapByDistrict;
   };
 
   const sortByNumberAsc = (number1: number, number2: number) => {
@@ -62,41 +61,56 @@ const Corona = () => {
     }
   };
 
-  const confirmedMappedByDistrict = confirmed.reduce(
+  const confirmedByDistrict = Array.from(confirmed.reduce(
     (entryMap: Map<string, Corona[]>, e: Corona) => entryMap.set(e.healthCareDistrict, [...entryMap.get(e.healthCareDistrict)||[], e]),
     new Map()
-  );
-
-  const confirmedByDistrict = Array.from(confirmedMappedByDistrict)
-    .map(([key, value]) => mapToConfirmedByDistrict(key, value))
+  ))
+    .map(([key, value]) => mapByDistrict(key, value))
     .sort((o1, o2) => sortByNumberAsc(o1.size, o2.size));
 
-  const renderBarChart = (
-    <BarChart
-      width={1000}
-      height={1000}
-      data={confirmedByDistrict}
-    >
-      <XAxis type="category" dataKey="district" />
-      <YAxis type="number" dataKey="size" />
-      <Tooltip />
-      <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-      <Bar dataKey="size"  fill="#8884d8" />
-    </BarChart>
-  );
+  const deathsByDistrict = Array.from(deaths.reduce(
+    (entryMap: Map<string, Corona[]>, e: Corona) => entryMap.set(e.healthCareDistrict, [...entryMap.get(e.healthCareDistrict)||[], e]),
+    new Map()
+  ))
+    .map(([key, value]) => mapByDistrict(key, value))
+    .sort((o1, o2) => sortByNumberAsc(o1.size, o2.size));
 
-  const renderLineChart = (
-    <LineChart width={1000} height={400} data={confirmedByDistrict}>
-      <Line
-        type="monotone"
-        dataKey="size"
-        stroke="#8884d8"
-        margin={{ all: 20 }}
-      />
-      <Tooltip />
-      <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-      <XAxis dataKey="district" />
-    </LineChart>
+  const recoveredByDistrict = Array.from(recovered.reduce(
+    (entryMap: Map<string, Corona[]>, e: Corona) => entryMap.set(e.healthCareDistrict, [...entryMap.get(e.healthCareDistrict)||[], e]),
+    new Map()
+  ))
+    .map(([key, value]) => mapByDistrict(key, value))
+    .sort((o1, o2) => sortByNumberAsc(o1.size, o2.size));
+
+  const dataset = [confirmedByDistrict, deathsByDistrict, recoveredByDistrict];
+  console.log(dataset);
+  const renderBarChart = (
+    <>
+      <VictoryChart
+        theme={VictoryTheme.material}
+        domainPadding={20}
+      >
+        <VictoryGroup horizontal
+                      style={{ data: { width: 6 } }}
+                      colorScale={["brown", "tomato", "gold"]}
+        >
+          <VictoryStack
+            colorScale={["black", "blue", "tomato"]}
+          >
+            {dataset.map((data, i) => {
+              return <VictoryBar
+                labelComponent={<VictoryTooltip />}
+                labels={(datum: { size: number; }) => datum.size}
+                data={confirmedByDistrict}
+                key={i}
+                x="district"
+                y="size"
+              />;
+            })}
+          </VictoryStack>
+        </VictoryGroup>
+      </VictoryChart>
+    </>
   );
 
   return (
@@ -110,8 +124,7 @@ const Corona = () => {
       { latestCase &&
         <p>Viimeisin vahvistettu tapaus: { latestCase.healthCareDistrict }: { latestCase.date }</p>
       }
-      { renderBarChart }
-      { renderLineChart }
+      {renderBarChart}
       <table>
         <thead>
           <tr>
